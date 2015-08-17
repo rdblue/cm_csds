@@ -1,0 +1,316 @@
+// Licensed to Cloudera, Inc. under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  Cloudera, Inc. licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+{
+  "name" : "NIFI",
+  "label" : "Apache NiFi",
+  "description" : "Dataflow management interface.",
+  "version" : "0.0.2-cdh5.4.0",
+  "compatibility" : { "cdhVersion" : { "min" : "5", "max" : "5" } },
+  "runAs" : {
+      "user" : "nifi",
+      "group" : "nifi"
+    },
+  "icon" : "images/nifi-16.png",
+  "parcel" : {
+      "repoUrl" : "http://repos.jenkins.cloudera.com/nifi-0.0.2-nightly-repos/NiFi-0.0.2-Packaging-2015-04-21_16-13-32/parcels/latest/",
+      "requiredTags" : [ "nifi" ]
+    },
+//  "serviceInit": {
+//      "preStartSteps": [ {
+//          "commandName": "configure"
+//        }, {
+//          "commandName": "configure_worker"
+//        } ]
+//    },
+  "commands": [ {
+      "name" : "configure_worker",
+      "label" : "Finalize configuration",
+      "description" : "Finalize configuration",
+      "roleName" : "NIFI_WORKER",
+      "roleCommand" : "configure",
+      "runMode" : "all"
+    }, {
+      "name" : "configure_master",
+      "label" : "Finalize configuration",
+      "description" : "Finalize configuration",
+      "roleName" : "NIFI_WEB_UI",
+      "roleCommand" : "configure",
+      "runMode" : "all"
+    } ],
+  "parameters": [ {
+      "name": "nifi_ui_banner_text",
+      "label": "NiFi web UI banner text",
+      "description": "Banner text that will be shown in the NiFi web UI",
+      "required": "false",
+      "configName": "nifi.ui.banner.text",
+      "type" : "string"
+    }, {
+      "name": "nifi_cluster_manager_protocol_port",
+      "label": "Cluster manager port",
+      "description": "Port for the NiFi cluster manager to communicate with workers",
+      "required": "true",
+      "configName": "nifi.cluster.manager.protocol.port",
+      "type" : "port",
+      "default" : "2045"
+    }, {
+      "name": "nifi_cluster_manager_address",
+      "label": "Cluster manager host",
+      "description": "Host for the NiFi cluster manager to listen on",
+      "required": "true",
+      "configName": "nifi.cluster.manager.address",
+      "type" : "string",
+      "default": "0.0.0.0"
+    }, {
+      "name": "nifi_cluster_protocol_heartbeat_interval",
+      "label": "Heartbeat interval",
+      "description": "Interval between sending heartbeat messages to the cluster manager",
+      "required": "true",
+      "configName": "nifi.cluster.protocol.heartbeat.interval",
+      "type" : "string",
+      "default" : "5 sec"
+    }, {
+      "name": "nifi_cluster_protocol_socket_timeout",
+      "label": "Socket timeout",
+      "description": "Maximum wait for worker heartbeat messages before removing the node",
+      "required": "true",
+      "configName": "nifi.cluster.protocol.socket.timeout",
+      "type" : "string",
+      "default" : "30 sec"
+    }, {
+      "name": "nifi_cluster_protocol_connection_handshake_timeout",
+      "label": "Handshake timeout",
+      "description": "Maximum wait while establishing a connection with a worker",
+      "required": "true",
+      "configName": "nifi.cluster.protocol.connection.handshake.timeout",
+      "type" : "string",
+      "default" : "45 sec"
+    }, {
+      "name": "nifi_web_jetty_working_directory",
+      "label": "Web working directory",
+      "description": "Web working directory for NiFi's internal Jetty web server",
+      "required": "true",
+      "configName": "nifi.web.jetty.working.directory",
+      "type" : "string",
+      "default" : "./work/jetty"
+    }, {
+      "name": "nifi_web_jetty_threads",
+      "label": "Web server threads",
+      "description": "Number of threads for NiFi's internal Jetty web server",
+      "required": "true",
+      "configName": "nifi.web.jetty.threads",
+      "type" : "long",
+      "min": "1",
+      "default" : "200"
+    } ],
+
+  "roles" : [ {
+      "name": "NIFI_WORKER",
+      "label": "NiFi Worker Node",
+      "pluralLabel": "NiFi Worker Nodes",
+      "JVMBased": true,
+      "configWriter": {
+          "peerConfigGenerators" : [ {
+              "filename": "conf/ncm.properties",
+              "params": [ "nifi_cluster_manager_address" ],
+              "roleName": "NIFI_WEB_UI"
+            } ],
+          "auxConfigGenerators" : [ {
+              "filename": "conf/logback.xml",
+              "sourceFilename": "aux/logback.xml"
+            } ],
+          "generators": [ {
+              "filename": "conf/nifi.properties",
+              "configFormat": "properties",
+              "excludedParams": [
+                  "nifi_cluster_manager_protocol_port",
+                  "nifi_cluster_manager_address"
+                ],
+              "additionalConfigs": [ {
+                  "key": "nifi.flow.configuration.file",
+                  "value": "./flow.xml.gz"
+                }, {
+                  "key": "nifi.flow.configuration.archive.dir",
+                  "value": "./archive/"
+                }, {
+                  "key": "nifi.authority.provided.configuration.file",
+                  "value": "./authority-providers.xml"
+                }, {
+                  "key": "nifi.reporting.task.configuration.file",
+                  "value": "./reporting-tasks.xml"
+                }, {
+                  "key": "nifi.controller.service.configuration.file",
+                  "value": "./controller-services.xml"
+                }, {
+                  "key": "nifi.templates.directory",
+                  "value": "./templates/"
+                }, {
+                  "key": "nifi.flowcontroller.autoResumeState",
+                  "value": "true"
+                }, {
+                  "key": "nifi.flowcontroller.graceful.shutdown.period",
+                  "value": "20 sec"
+                }, {
+                  "key": "nifi.flowservice.writedelay.interval",
+                  "value": "500 ms"
+                }, {
+                  "key": "nifi.administrative.yield.duration",
+                  "value": "30 sec"
+                }, {
+                  "key": "nifi.bored.yield.duration",
+                  "value": "10 ms"
+                }, {
+                  "key": "nifi.cluster.is.node",
+                  "value": "true"
+                }, {
+                  "key": "nifi.cluster.node.protocol.threads",
+                  "value": "2"
+                }, {
+                  "key": "nifi.cluster.node.unicast.manager.protocol.port",
+                  "value": "${nifi_cluster_manager_protocol_port}"
+                }, {
+                  "key": "nifi.cluster.protocol.is.secure",
+                  "value": "false"
+                }, {
+                  "key": "nifi.cluster.protocol.use.multicast",
+                  "value": "false"
+                } ]
+            } ]
+        },
+      "parameters": [ {
+          "name": "nifi_web_http_port",
+          "label": "Worker web connection port",
+          "description": "Port for workers to listen for REST API calls",
+          "required": "true",
+          "configName": "nifi.web.http.port",
+          "type" : "port",
+          "default" : "8081"
+        }, {
+          "name": "nifi_cluster_node_protocol_port",
+          "label": "Worker communication port",
+          "description": "Port for NiFi workers to use for cluster communication",
+          "required": "true",
+          "configName": "nifi.cluster.node.protocol.port",
+          "type" : "port",
+          "default" : "2145"
+//        }, {
+//          "name": "nifi_conf_dir",
+//          "label": "Configuration directory",
+//          "description": "Directory for NiFi worker configuration",
+//          "required": "true",
+//          "type": "path",
+//          "pathType": "localDataDir",
+//          "mode": "0700",
+//          "default" : "/var/lib/nifi/conf"
+        } ],
+      "startRunner": {
+          "program": "scripts/cm-nifi.sh",
+          "args": [ "start-worker" ],
+          "environmentVariables": {
+              "IS_WORKER": "true"
+            }
+        },
+      "commands" : [ {
+          "name" : "configure",
+          "label" : "Finalizes configuration files",
+          "description" : "Finalizes configuration files with role information",
+          "expectedExitCodes" : [ 0 ],
+          "requiredRoleState" : "stopped",
+          "commandRunner" : {
+              "program" : "scripts/finalize-config.sh",
+              "args" : ["master"]
+            }
+        } ]
+    }, {
+      "name": "NIFI_WEB_UI",
+      "label": "NiFi Web UI and Cluster Manager",
+      "pluralLabel": "NiFi Web UI and Cluster Manager Nodes",
+      "JVMBased": true,
+      "externalLink" : {
+          "name" : "nifi_web_ui",
+          "label" : "NiFi Web UI",
+          "url" : "http://${host}:${nifi_web_http_port}/nifi"
+        },
+      "topology": { "minInstances": 1, "maxInstances": 1 },
+      "configWriter": {
+          "auxConfigGenerators" : [ {
+              "filename": "conf/logback.xml",
+              "sourceFilename": "aux/logback.xml"
+            } ],
+          "generators": [ {
+              "filename": "conf/nifi.properties",
+              "configFormat": "properties",
+              "additionalConfigs": [ {
+                  "key": "nifi.cluster.is.manager",
+                  "value": "true"
+                }, {
+                  "key": "nifi.cluster.manager.protocol.threads",
+                  "value": "10"
+                }, {
+                  "key": "nifi.cluster.manager.node.api.request.threads",
+                  "value": "10"
+                }, {
+                  "key": "nifi.cluster.manager.node.event.history.size",
+                  "value": "10"
+                }, {
+                  "key": "nifi.cluster.manager.node.api.connection.timeout",
+                  "value": "30 sec"
+                }, {
+                  "key": "nifi.cluster.manager.node.api.read.timeout",
+                  "value": "30 sec"
+                }, {
+                  "key": "nifi.cluster.manager.flow.retrieval.delay",
+                  "value": "5 sec"
+                }, {
+                  "key": "nifi.cluster.manager.safemode.duration",
+                  "value": "0 sec"
+                }, {
+                  "key": "nifi.cluster.protocol.is.secure",
+                  "value": "false"
+                }, {
+                  "key": "nifi.cluster.protocol.use.multicast",
+                  "value": "false"
+                } ]
+            } ]
+        },
+      "parameters": [ {
+          "name": "nifi_web_http_port",
+          "label": "NiFi web UI port",
+          "description": "Port for NiFi's web UI",
+          "required": "true",
+          "configName": "nifi.web.http.port",
+          "type" : "port",
+          "default" : "8081"
+        } ],
+      "startRunner": {
+          "program": "scripts/cm-nifi.sh",
+          "args": [ "start-ncm" ],
+          "environmentVariables": {
+              "IS_MASTER": "true"
+            }
+        },
+      "commands" : [ {
+          "name" : "configure",
+          "label" : "Finalizes configuration files",
+          "description" : "Finalizes configuration files with role information",
+          "expectedExitCodes" : [ 0 ],
+          "requiredRoleState" : "stopped",
+          "commandRunner" : {
+              "program" : "scripts/finalize-config.sh",
+              "args" : ["master"]
+            }
+        } ]
+    } ]
+}
